@@ -1,7 +1,11 @@
 [package]
 name = "daily-dose"
 version = "0.1.0"
+authors = ["Hayley Sparham <5777950+PartlyAwesome@users.noreply.github.com>"]
 edition = "2021"
 
 [dependencies]
+clap = { version = "4.5.21", features = ["derive", "env"] }
+env = "0.1.0"
 serenity = "0.12.4"
+tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
