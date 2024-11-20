@@ -1,8 +1,6 @@
-use std::default;
-
-use ::serenity::all::{CreateEmbed, CreateEmbedFooter, Embed, EmbedVideo, Timestamp};
 use clap::Parser;
 use poise::{serenity_prelude as serenity, CreateReply};
+use serenity::all::{CreateAttachment, CreateEmbed, CreateEmbedFooter, Timestamp};
 use serenity::{all::GatewayIntents, Client, User};
 
 /// A bot that posts a video daily
@@ -32,28 +30,15 @@ async fn age(ctx: Context<'_>, #[description = "user"] user: Option<User>) -> Re
 /// Deploys a daily dose!
 #[poise::command(slash_command, prefix_command)]
 async fn daily_dose(ctx: Context<'_>) -> Result<(), Error> {
+    let video_filename = "dailydose.mp4";
     let embed = CreateEmbed::new()
         .title("DAILY DOSE")
-        .description("a daily dose")
-        .fields(vec![
-            ("First", "First body", true),
-            ("Second", "Second body", true),
-        ])
-        .field("Third", "Third body", false)
-        .footer(CreateEmbedFooter::new("footer"))
+        .attachment(video_filename)
+        .footer(CreateEmbedFooter::new("And have a nice day"))
         .timestamp(Timestamp::now());
-    let mut real_embed = Embed::default();
-    real_embed.title = Some("DAILY DOSE".to_string());
-    real_embed.kind = Some("video".to_string());
-    let embed_video = EmbedVideo {
-        url: "a".to_string(),
-        proxy_url: None,
-        height: None,
-        width: None,
-    };
-    //let blah = EmbedVideo();
-    //real_embed.video = Some();
-    let builder = CreateReply::default().content("Test").embed(embed);
+    let builder = CreateReply::default()
+        .embed(embed)
+        .attachment(CreateAttachment::path("./".to_string() + video_filename).await?);
     ctx.send(builder).await?;
     Ok(())
 }
