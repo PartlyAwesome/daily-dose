@@ -33,8 +33,8 @@ async fn daily_dose(ctx: Context<'_>) -> Result<(), Error> {
     let video_filename = "dailydose.mp4";
     let embed = CreateEmbed::new()
         .title("DAILY DOSE")
-        .attachment(video_filename)
-        .footer(CreateEmbedFooter::new("And have a nice day"))
+        //.attachment(video_filename)
+        .footer(CreateEmbedFooter::new("dailydose.mp4"))
         .timestamp(Timestamp::now());
     let builder = CreateReply::default()
         .embed(embed)
