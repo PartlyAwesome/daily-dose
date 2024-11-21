@@ -1,7 +1,7 @@
 use clap::Parser;
 use poise::{serenity_prelude as serenity, CreateReply};
-use serenity::all::{CreateAttachment, CreateEmbed, CreateEmbedFooter, Timestamp};
-use serenity::{all::GatewayIntents, Client, User};
+use serenity::all::CreateAttachment;
+use serenity::{all::GatewayIntents, Client};
 
 /// A bot that posts a video daily
 #[derive(Parser, Debug)]
@@ -19,26 +19,36 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
 /// Displays the account's discord age
-#[poise::command(slash_command, prefix_command)]
-async fn age(ctx: Context<'_>, #[description = "user"] user: Option<User>) -> Result<(), Error> {
-    let u = user.as_ref().unwrap_or_else(|| ctx.author());
-    let resp = format!("{}'s account was created at {}", u.name, u.created_at());
-    ctx.say(resp).await?;
-    Ok(())
-}
+//#[poise::command(slash_command, prefix_command)]
+//async fn age(ctx: Context<'_>, #[description = "user"] user: Option<User>) -> Result<(), Error> {
+//    let u = user.as_ref().unwrap_or_else(|| ctx.author());
+//    let resp = format!("{}'s account was created at {}", u.name, u.created_at());
+//    ctx.say(resp).await?;
+//    Ok(())
+//}
 
 /// Deploys a daily dose!
 #[poise::command(slash_command, prefix_command)]
 async fn daily_dose(ctx: Context<'_>) -> Result<(), Error> {
     let video_filename = "dailydose.mp4";
-    let embed = CreateEmbed::new()
-        .title("DAILY DOSE")
-        //.attachment(video_filename)
-        .footer(CreateEmbedFooter::new("dailydose.mp4"))
-        .timestamp(Timestamp::now());
+    //let embed = CreateEmbed::new()
+    //    .title("DAILY DOSE")
+    //    //.attachment(video_filename)
+    //    .footer(CreateEmbedFooter::new("dailydose.mp4"))
+    //    .timestamp(Timestamp::now());
     let builder = CreateReply::default()
-        .embed(embed)
+        //.embed(embed)
         .attachment(CreateAttachment::path("./".to_string() + video_filename).await?);
+    ctx.send(builder).await?;
+    Ok(())
+}
+
+/// Kill the president
+#[poise::command(slash_command, prefix_command)]
+async fn kill_the_president(ctx: Context<'_>) -> Result<(), Error> {
+    let png_filename = "kill.png";
+    let builder = CreateReply::default()
+        .attachment(CreateAttachment::path("./".to_string() + png_filename).await?);
     ctx.send(builder).await?;
     Ok(())
 }
@@ -65,7 +75,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![age(), daily_dose()],
+            commands: vec![kill_the_president(), daily_dose()],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
