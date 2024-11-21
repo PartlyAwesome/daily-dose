@@ -10,3 +10,4 @@ env = "0.1.0"
 serenity = "0.12.4"
 tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
 poise = "0.6.1"
+chrono = "0.4.38"

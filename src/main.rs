@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use clap::Parser;
 use poise::{serenity_prelude as serenity, CreateReply};
 use serenity::all::CreateAttachment;
@@ -52,6 +53,23 @@ async fn kill_the_president(ctx: Context<'_>) -> Result<(), Error> {
     ctx.send(builder).await?;
     Ok(())
 }
+
+/// Start posting randomly
+#[poise::command(slash_command, prefix_command)]
+async fn random_post(ctx: Context<'_>) -> Result<(), Error> {
+    let png_filename = "kill.png";
+    let builder = CreateReply::default()
+        .attachment(CreateAttachment::path("./".to_string() + png_filename).await?);
+    ctx.send(builder).await?;
+    Ok(())
+}
+
+async fn post(ctx: Context<'_>, builder: CreateReply) {
+    let _ = ctx.send(builder).await;
+}
+
+fn generate_time_between(start: NaiveDate, end: NaiveDate) -> NaiveDate {}
+
 //#[async_trait]
 //impl EventHandler for Handler {
 //    async fn message(&self, ctx: Context, msg: Message) {
