@@ -1,10 +1,10 @@
-use chrono::{Duration, NaiveDateTime, NaiveTime, Utc};
 use clap::Parser;
 use poise::{serenity_prelude as serenity, CreateReply};
 use rand::Rng;
 use serenity::all::CreateAttachment;
 use serenity::all::{ChannelId, Http};
 use serenity::{all::GatewayIntents, Client};
+use tokio::time::{Duration, Instant};
 
 /// A bot that posts a video daily
 #[derive(Parser, Debug)]
@@ -50,8 +50,8 @@ async fn random_post(ctx: Context<'_>) -> Result<(), Error> {
     ctx.send(builder).await?;
     tokio::spawn(async move {
         let next_time = gen_instant_between(
-            tokio::time::Instant::now() + tokio::time::Duration::from_secs(5),
-            tokio::time::Instant::now() + tokio::time::Duration::from_secs(15),
+            Instant::now() + Duration::from_secs(5),
+            Instant::now() + Duration::from_secs(15),
         );
         tokio::time::sleep_until(next_time).await;
         post_in_channel(token.to_owned(), channel_id).await;
@@ -70,16 +70,10 @@ async fn post_in_channel(token: String, channel_id: u64) {
     }
 }
 
-fn gen_instant_between(
-    start: tokio::time::Instant,
-    end: tokio::time::Instant,
-) -> tokio::time::Instant {
-    let sec: i64 = (end - start).as_secs().try_into().expect("Time overflow");
-    let rand_sec: i64 = rand::thread_rng().gen_range(0..sec);
-    tokio::time::Instant::now()
-        + Duration::seconds(rand_sec)
-            .to_std()
-            .expect("It won't break")
+fn gen_instant_between(start: Instant, end: Instant) -> Instant {
+    let sec = (end - start).as_secs();
+    let rand_sec = rand::thread_rng().gen_range(0..sec);
+    Instant::now() + Duration::from_secs(rand_sec)
 }
 
 #[tokio::main]
