@@ -1,7 +1,10 @@
-use chrono::NaiveDate;
+use chrono::{Duration, NaiveDateTime, NaiveTime, Utc};
 use clap::Parser;
+use clokwerk::{AsyncScheduler, Job, TimeUnits};
 use poise::{serenity_prelude as serenity, CreateReply};
+use rand::Rng;
 use serenity::all::CreateAttachment;
+use serenity::all::{ChannelId, Http};
 use serenity::{all::GatewayIntents, Client};
 
 /// A bot that posts a video daily
@@ -57,18 +60,58 @@ async fn kill_the_president(ctx: Context<'_>) -> Result<(), Error> {
 /// Start posting randomly
 #[poise::command(slash_command, prefix_command)]
 async fn random_post(ctx: Context<'_>) -> Result<(), Error> {
+    let mut scheduler = AsyncScheduler::new();
+    let token = ctx.http().token().to_string();
+    let channel_id = ctx.channel_id().get();
+    let next_time = generate_time_between(
+        Utc::now().naive_local() + Duration::seconds(5),
+        Utc::now().naive_local() + Duration::seconds(15),
+    );
+    println!("{next_time:?}");
+    scheduler
+        .every(1.day())
+        .at_time(next_time)
+        .run(move || {
+            println!("running?");
+            post_in_channel(token.to_owned(), channel_id)
+        })
+        .once();
     let png_filename = "kill.png";
     let builder = CreateReply::default()
         .attachment(CreateAttachment::path("./".to_string() + png_filename).await?);
     ctx.send(builder).await?;
+    tokio::spawn(async move {
+        loop {
+            println!("spawn?");
+            scheduler.run_pending().await;
+            tokio::time::sleep(
+                Duration::milliseconds(100)
+                    .to_std()
+                    .expect("It shouldn't break"),
+            )
+            .await;
+        }
+    });
     Ok(())
 }
 
-async fn post(ctx: Context<'_>, builder: CreateReply) {
-    let _ = ctx.send(builder).await;
+async fn post_in_channel(token: String, channel_id: u64) {
+    println!("starting post_in_channel");
+    let _builder = CreateReply::default().content("test");
+    let msg = ChannelId::new(channel_id)
+        .say(Http::new(&token), "test")
+        .await;
+    if let Err(why) = msg {
+        println!("Err: {why:?}")
+    }
 }
 
-fn generate_time_between(start: NaiveDate, end: NaiveDate) -> NaiveDate {}
+fn generate_time_between(start: NaiveDateTime, end: NaiveDateTime) -> NaiveTime {
+    let seconds_in_range = (end - start).num_seconds();
+    let random_seconds: i64 = rand::thread_rng().gen_range(0..seconds_in_range);
+    let next_time = start + Duration::seconds(random_seconds);
+    next_time.time()
+}
 
 //#[async_trait]
 //impl EventHandler for Handler {
@@ -93,7 +136,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![kill_the_president(), daily_dose()],
+            commands: vec![kill_the_president(), daily_dose(), random_post()],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
