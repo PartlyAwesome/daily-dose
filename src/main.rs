@@ -1,6 +1,5 @@
 use chrono::{Duration, NaiveDateTime, NaiveTime, Utc};
 use clap::Parser;
-use clokwerk::{AsyncScheduler, Job, TimeUnits};
 use poise::{serenity_prelude as serenity, CreateReply};
 use rand::Rng;
 use serenity::all::CreateAttachment;
@@ -16,32 +15,15 @@ struct Args {
     token: String,
 }
 
-//struct Handler;
-
 struct Data {} // User data
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
-
-/// Displays the account's discord age
-//#[poise::command(slash_command, prefix_command)]
-//async fn age(ctx: Context<'_>, #[description = "user"] user: Option<User>) -> Result<(), Error> {
-//    let u = user.as_ref().unwrap_or_else(|| ctx.author());
-//    let resp = format!("{}'s account was created at {}", u.name, u.created_at());
-//    ctx.say(resp).await?;
-//    Ok(())
-//}
 
 /// Deploys a daily dose!
 #[poise::command(slash_command, prefix_command)]
 async fn daily_dose(ctx: Context<'_>) -> Result<(), Error> {
     let video_filename = "dailydose.mp4";
-    //let embed = CreateEmbed::new()
-    //    .title("DAILY DOSE")
-    //    //.attachment(video_filename)
-    //    .footer(CreateEmbedFooter::new("dailydose.mp4"))
-    //    .timestamp(Timestamp::now());
     let builder = CreateReply::default()
-        //.embed(embed)
         .attachment(CreateAttachment::path("./".to_string() + video_filename).await?);
     ctx.send(builder).await?;
     Ok(())
@@ -60,7 +42,6 @@ async fn kill_the_president(ctx: Context<'_>) -> Result<(), Error> {
 /// Start posting randomly
 #[poise::command(slash_command, prefix_command)]
 async fn random_post(ctx: Context<'_>) -> Result<(), Error> {
-    let mut scheduler = AsyncScheduler::new();
     let token = ctx.http().token().to_string();
     let channel_id = ctx.channel_id().get();
     let next_time = generate_time_between(
@@ -68,29 +49,17 @@ async fn random_post(ctx: Context<'_>) -> Result<(), Error> {
         Utc::now().naive_local() + Duration::seconds(15),
     );
     println!("{next_time:?}");
-    scheduler
-        .every(1.day())
-        .at_time(next_time)
-        .run(move || {
-            println!("running?");
-            post_in_channel(token.to_owned(), channel_id)
-        })
-        .once();
     let png_filename = "kill.png";
     let builder = CreateReply::default()
         .attachment(CreateAttachment::path("./".to_string() + png_filename).await?);
     ctx.send(builder).await?;
     tokio::spawn(async move {
-        loop {
-            println!("spawn?");
-            scheduler.run_pending().await;
-            tokio::time::sleep(
-                Duration::milliseconds(100)
-                    .to_std()
-                    .expect("It shouldn't break"),
-            )
-            .await;
-        }
+        let next_time = gen_instant_between(
+            tokio::time::Instant::now() + tokio::time::Duration::from_secs(5),
+            tokio::time::Instant::now() + tokio::time::Duration::from_secs(15),
+        );
+        tokio::time::sleep_until(next_time).await;
+        post_in_channel(token.to_owned(), channel_id).await;
     });
     Ok(())
 }
@@ -113,20 +82,17 @@ fn generate_time_between(start: NaiveDateTime, end: NaiveDateTime) -> NaiveTime 
     next_time.time()
 }
 
-//#[async_trait]
-//impl EventHandler for Handler {
-//    async fn message(&self, ctx: Context, msg: Message) {
-//        if msg.content == "!ping" {
-//            if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!").await {
-//                println!("Error sending message: {why:?}");
-//            }
-//        }
-//    }
-//
-//    async fn ready(&self, _: Context, ready: Ready) {
-//        println!("{} is connected", ready.user.name);
-//    }
-//}
+fn gen_instant_between(
+    start: tokio::time::Instant,
+    end: tokio::time::Instant,
+) -> tokio::time::Instant {
+    let sec: i64 = (end - start).as_secs().try_into().expect("Time overflow");
+    let rand_sec: i64 = rand::thread_rng().gen_range(0..sec);
+    tokio::time::Instant::now()
+        + Duration::seconds(rand_sec)
+            .to_std()
+            .expect("It won't break")
+}
 
 #[tokio::main]
 async fn main() {
