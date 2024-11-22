@@ -44,11 +44,6 @@ async fn kill_the_president(ctx: Context<'_>) -> Result<(), Error> {
 async fn random_post(ctx: Context<'_>) -> Result<(), Error> {
     let token = ctx.http().token().to_string();
     let channel_id = ctx.channel_id().get();
-    let next_time = generate_time_between(
-        Utc::now().naive_local() + Duration::seconds(5),
-        Utc::now().naive_local() + Duration::seconds(15),
-    );
-    println!("{next_time:?}");
     let png_filename = "kill.png";
     let builder = CreateReply::default()
         .attachment(CreateAttachment::path("./".to_string() + png_filename).await?);
@@ -73,13 +68,6 @@ async fn post_in_channel(token: String, channel_id: u64) {
     if let Err(why) = msg {
         println!("Err: {why:?}")
     }
-}
-
-fn generate_time_between(start: NaiveDateTime, end: NaiveDateTime) -> NaiveTime {
-    let seconds_in_range = (end - start).num_seconds();
-    let random_seconds: i64 = rand::thread_rng().gen_range(0..seconds_in_range);
-    let next_time = start + Duration::seconds(random_seconds);
-    next_time.time()
 }
 
 fn gen_instant_between(
