@@ -1,3 +1,6 @@
+use chrono::Datelike;
+use chrono::TimeZone;
+use chrono::Utc;
 use chrono_tz::Europe::London;
 use chrono_tz::US::Pacific;
 use clap::Parser;
@@ -8,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serenity::all::CacheHttp;
 use serenity::all::ChannelId;
 use serenity::all::CreateAttachment;
+use serenity::all::CreateMessage;
 use serenity::{all::GatewayIntents, Client};
 use std::sync::Arc;
 use tokio::time::{Duration, Instant};
@@ -77,10 +81,6 @@ fn write_to_file<T: Serialize>(filename: &str, object: T) -> std::io::Result<()>
 
 #[poise::command(slash_command, prefix_command)]
 async fn initialise_file(ctx: Context<'_>) -> Result<(), Error> {
-    //let channels_file = std::fs::read_to_string("channels.toml").unwrap();
-    //let mut channels: Vec<String> = toml::from_str(&channels_file).expect("channels TOML invalid");
-    //channels.push(ctx.channel_id().get().to_string());
-    //channels = channels.into_iter().unique().collect_vec();
     let config = Config {
         channels: Vec::new(),
     };
@@ -89,82 +89,66 @@ async fn initialise_file(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-//struct Handler;
-
-//#[async_trait]
-//impl EventHandler for Handler {
-//    async fn cache_ready(&self, ctx: poise::serenity_prelude::Context, _guilds: Vec<GuildId>) {
-//        //let token = ctx.http.token().to_string();
-//        //let channel_id = 135489943710466049;
-//        //Box::pin(async move {
-//        let ctx = Arc::new(&ctx);
-//        let ctx_clone = ctx.clone();
-//
-//        tokio::spawn(queue_post(&ctx_clone));
-//        //})
-//    }
-//}
-
-/// Start posting randomly
-//#[poise::command(slash_command, prefix_command)]
-//async fn random_post(ctx: Context<'_>) -> Result<(), Error> {
-//    let token = ctx.http().token().to_string();
-//    let channel_id = ctx.channel_id().get();
-//    //let png_filename = "kill.png";
-//    //let builder = CreateReply::default()
-//    //    .attachment(CreateAttachment::path("./".to_string() + png_filename).await?);
-//    //ctx.send(builder).await?;
-//    //tokio::spawn(async move {
-//    //    let next_time = gen_instant_between(
-//    //        Instant::now() + Duration::from_secs(5),
-//    //        Instant::now() + Duration::from_secs(15),
-//    //    );
-//    //    tokio::time::sleep_until(next_time).await;
-//    //    post_in_channel(token.to_owned(), channel_id).await;
-//    //});
-//    tokio::spawn(queue_post(token, channel_id));
-//    Ok(())
-//}
-
-//async fn queue_post(token: String, channel_id: u64) {
-//    loop {
-//        let next_time = gen_instant_between(
-//            Instant::now() + Duration::from_secs(120),
-//            Instant::now() + Duration::from_secs(480),
-//        );
-//        tokio::time::sleep_until(next_time).await;
-//        post_in_channel(token.clone(), channel_id).await;
-//    }
-//}
-
 async fn queue_post(ctx: serenity::Context, config: &Config) {
     let ctx = Arc::new(ctx);
     loop {
         let channels = config.channels.clone();
-        //let ctx = ctx.clone();
         for channel in channels {
             let channel_ctx = Arc::clone(&ctx);
             println!("{channel:?}");
             tokio::spawn(async move {
-                let next_time = gen_instant_between(
-                    Instant::now() + Duration::from_secs(120),
-                    Instant::now() + Duration::from_secs(480),
-                );
+                let now = Utc::now();
+                let london_midnight =
+                    London.with_ymd_and_hms(now.year(), now.month(), now.day(), 23, 59, 59);
+                let last_possible_post_time = Instant::now()
+                    + Duration::from_secs(
+                        london_midnight
+                            .unwrap()
+                            .signed_duration_since(Utc::now())
+                            .num_seconds()
+                            .try_into()
+                            .unwrap(),
+                    );
+                let next_time = gen_instant_between(Instant::now(), last_possible_post_time);
+                //println!("{next_time:#?}");
                 tokio::time::sleep_until(next_time).await;
                 post_in_channel(&channel_ctx, channel).await;
             });
         }
-        tokio::time::sleep_until(Instant::now() + Duration::from_secs(500)).await;
+        let now = Utc::now();
+        let next_midnight =
+            Pacific.with_ymd_and_hms(now.year(), now.month(), now.day() + 1, 0, 0, 0);
+        let sleep_duration = Instant::now()
+            + Duration::from_secs(
+                next_midnight
+                    .unwrap()
+                    .signed_duration_since(Utc::now())
+                    .num_seconds()
+                    .try_into()
+                    .unwrap(),
+            );
+        //println!("{next_midnight:#?}");
+        //println!("{sleep_duration:#?}");
+        tokio::time::sleep_until(sleep_duration).await;
     }
 }
 
 async fn post_in_channel(ctx: &serenity::Context, channel_id: u64) {
-    println!("starting post_in_channel");
-    let _builder = CreateReply::default().content("test");
-    let msg = ChannelId::new(channel_id).say(ctx.http(), "test").await;
+    println!("posting a dose");
+    let video_filename = "dailydose.mp4";
+    let builder = CreateMessage::new().add_file(
+        CreateAttachment::path("./".to_string() + video_filename)
+            .await
+            .expect("unable to attach file"),
+    );
+    //let msg = ChannelId::new(channel_id).say(ctx.http(), "test").await;
+    let msg = ChannelId::new(channel_id)
+        .send_message(ctx.http(), builder)
+        .await;
     if let Err(why) = msg {
         println!("Err: {why:?}")
     }
+    //ctx.send(builder).await?;
 }
 
 fn gen_instant_between(start: Instant, end: Instant) -> Instant {
