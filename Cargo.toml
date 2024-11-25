@@ -16,3 +16,5 @@ clokwerk = "0.4.0"
 serde = { version = "1.0.215", features = ["derive"] }
 toml = "0.8.19"
 itertools = "0.13.0"
+config = { version = "0.14.1", features = ["toml"] }
+chrono-tz = "0.10.0"
