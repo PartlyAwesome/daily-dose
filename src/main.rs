@@ -164,18 +164,15 @@ async fn event_handler(
     _framework: poise::FrameworkContext<'_, Config, Error>,
     data: &Config,
 ) -> Result<(), Error> {
-    match event {
-        serenity::FullEvent::CacheReady { guilds: _ } => {
-            println!("cache ready!");
-            println!("{data:#?}");
-            let config = Arc::new(data);
-            //let config_clone = config.clone();
-            //let ctx = Arc::new(ctx);
-            //async move {
-            queue_post(ctx, &config).await;
-            //};
-        }
-        _ => {}
+    if let serenity::FullEvent::CacheReady { guilds: _ } = event {
+        println!("cache ready!");
+        println!("{data:#?}");
+        let config = Arc::new(data);
+        //let config_clone = config.clone();
+        //let ctx = Arc::new(ctx);
+        //async move {
+        queue_post(ctx, &config).await;
+        //};
     }
     Ok(())
 }
