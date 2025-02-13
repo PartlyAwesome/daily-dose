@@ -1,4 +1,5 @@
 use chrono::Datelike;
+use chrono::Days;
 use chrono::TimeZone;
 use chrono::Utc;
 use chrono_tz::Europe::London;
@@ -117,7 +118,7 @@ async fn queue_post(ctx: serenity::Context, config: &Config) {
         }
         let now = Utc::now();
         let next_midnight =
-            Pacific.with_ymd_and_hms(now.year(), now.month(), now.day() + 1, 0, 0, 0);
+            Pacific.with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0).single().expect("Pacific should have a timezone.").checked_add_days(Days::new(1));
         let sleep_duration = Instant::now()
             + Duration::from_secs(
                 next_midnight
