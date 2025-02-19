@@ -68,11 +68,25 @@ async fn record_channel_to_file(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-//#[poise::command(slash_command, prefix_command)]
-//async fn add_channel_to_config(ctx: Context<'_>) -> Result<(), Error> {
-    //let mut config: &mut Config = ctx.data();
-    //config.channels.append(other);
-//}
+#[poise::command(slash_command, prefix_command)]
+async fn add_channel_to_config(ctx: Context<'_>) -> Result<(), Error> {
+    {
+        let mut config = ctx.data().lock().expect("lock broke");
+        config.channels.push(ctx.channel_id().get());
+        config.channels.sort_unstable();
+        config.channels.dedup();
+    }
+    ctx.say(
+        "Added ".to_owned()
+            + &ctx
+                .channel_id()
+                .name(ctx.http())
+                .await
+                .unwrap_or("channel".to_string()),
+    )
+    .await?;
+    Ok(())
+}
 
 fn read_from_file<T>(filename: &str) -> Result<T, toml::de::Error>
 where
@@ -99,7 +113,14 @@ async fn initialise_file(ctx: Context<'_>) -> Result<(), Error> {
 
 #[poise::command(slash_command, prefix_command)]
 async fn post_config(ctx: Context<'_>) -> Result<(), Error> {
-    let message = ctx.data().lock().expect("lock broke").channels.clone().iter().join(", ");
+    let message = ctx
+        .data()
+        .lock()
+        .expect("lock broke")
+        .channels
+        .clone()
+        .iter()
+        .join(", ");
     let builder = CreateReply::default().content(message);
     ctx.send(builder).await?;
     Ok(())
@@ -132,8 +153,11 @@ async fn queue_post(ctx: serenity::Context, config: Arc<Mutex<Config>>) {
             });
         }
         let now = Utc::now();
-        let next_midnight =
-            Pacific.with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0).single().expect("Pacific should have a timezone.").checked_add_days(Days::new(1));
+        let next_midnight = Pacific
+            .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
+            .single()
+            .expect("Pacific should have a timezone.")
+            .checked_add_days(Days::new(1));
         let sleep_duration = Instant::now()
             + Duration::from_secs(
                 next_midnight
@@ -205,7 +229,8 @@ async fn main() {
                 daily_dose(),
                 record_channel_to_file(),
                 initialise_file(),
-                post_config()
+                post_config(),
+                add_channel_to_config(),
             ],
             event_handler: |ctx, event, framework, data| {
                 Box::pin(event_handler(ctx.clone(), event, framework, data.clone()))
