@@ -5,16 +5,16 @@ authors = ["Hayley Sparham <5777950+PartlyAwesome@users.noreply.github.com>"]
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.21", features = ["derive", "env"] }
-env = "0.1.0"
+clap = { version = "4.5.30", features = ["derive", "env"] }
 serenity = "0.12.4"
-tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread"] }
 poise = "0.6.1"
-chrono = "0.4.38"
-rand = "0.8.5"
+chrono = "0.4.39"
+rand = "0.9.0"
 clokwerk = "0.4.0"
-serde = { version = "1.0.215", features = ["derive"] }
-toml = "0.8.19"
-itertools = "0.13.0"
-config = { version = "0.14.1", features = ["toml"] }
-chrono-tz = "0.10.0"
+serde = { version = "1.0.217", features = ["derive"] }
+toml = "0.8.20"
+itertools = "0.14.0"
+config = { version = "0.15.8", features = ["toml"] }
+chrono-tz = "0.10.1"
+parking_lot = { version = "0.12.3", features = ["serde"] }

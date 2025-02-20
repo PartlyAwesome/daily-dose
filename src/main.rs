@@ -6,6 +6,7 @@ use chrono_tz::Europe::London;
 use chrono_tz::US::Pacific;
 use clap::Parser;
 use itertools::Itertools;
+use parking_lot::Mutex;
 use poise::{serenity_prelude as serenity, CreateReply};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -14,8 +15,8 @@ use serenity::all::ChannelId;
 use serenity::all::CreateAttachment;
 use serenity::all::CreateMessage;
 use serenity::{all::GatewayIntents, Client};
+use std::ops::Deref;
 use std::sync::Arc;
-use std::sync::Mutex;
 use tokio::time::{Duration, Instant};
 
 static CONFIG_FILE: &str = "config.toml";
@@ -71,10 +72,11 @@ async fn record_channel_to_file(ctx: Context<'_>) -> Result<(), Error> {
 #[poise::command(slash_command, prefix_command)]
 async fn add_channel_to_config(ctx: Context<'_>) -> Result<(), Error> {
     {
-        let mut config = ctx.data().lock().expect("lock broke");
+        let mut config = ctx.data().lock();
         config.channels.push(ctx.channel_id().get());
         config.channels.sort_unstable();
         config.channels.dedup();
+        write_to_file(CONFIG_FILE, config.deref()).expect("unable to write config TOML to file");
     }
     ctx.say(
         "Added ".to_owned()
@@ -113,14 +115,7 @@ async fn initialise_file(ctx: Context<'_>) -> Result<(), Error> {
 
 #[poise::command(slash_command, prefix_command)]
 async fn post_config(ctx: Context<'_>) -> Result<(), Error> {
-    let message = ctx
-        .data()
-        .lock()
-        .expect("lock broke")
-        .channels
-        .clone()
-        .iter()
-        .join(", ");
+    let message = ctx.data().lock().channels.clone().iter().join(", ");
     let builder = CreateReply::default().content(message);
     ctx.send(builder).await?;
     Ok(())
@@ -129,7 +124,7 @@ async fn post_config(ctx: Context<'_>) -> Result<(), Error> {
 async fn queue_post(ctx: serenity::Context, config: Arc<Mutex<Config>>) {
     let ctx = Arc::new(ctx);
     loop {
-        let channels = config.lock().expect("lock broke").channels.clone();
+        let channels = config.lock().channels.clone();
         for channel in channels {
             let channel_ctx = Arc::clone(&ctx);
             println!("{channel:?}");
@@ -193,7 +188,7 @@ async fn post_in_channel(ctx: &serenity::Context, channel_id: u64) {
 
 fn gen_instant_between(start: Instant, end: Instant) -> Instant {
     let sec = (end - start).as_secs();
-    let rand_sec = rand::thread_rng().gen_range(0..sec);
+    let rand_sec = rand::rng().random_range(0..sec);
     Instant::now() + Duration::from_secs(rand_sec)
 }
 
