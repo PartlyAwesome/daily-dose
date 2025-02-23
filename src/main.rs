@@ -1,10 +1,12 @@
 use chrono::Datelike;
+use chrono::Days;
 use chrono::TimeZone;
 use chrono::Utc;
 use chrono_tz::Europe::London;
 use chrono_tz::US::Pacific;
 use clap::Parser;
 use itertools::Itertools;
+use parking_lot::Mutex;
 use poise::{serenity_prelude as serenity, CreateReply};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -13,6 +15,7 @@ use serenity::all::ChannelId;
 use serenity::all::CreateAttachment;
 use serenity::all::CreateMessage;
 use serenity::{all::GatewayIntents, Client};
+use std::ops::Deref;
 use std::sync::Arc;
 use tokio::time::{Duration, Instant};
 
@@ -34,7 +37,7 @@ struct Config {
 
 //struct Data {} // User data
 type Error = Box<dyn std::error::Error + Send + Sync>;
-type Context<'a> = poise::Context<'a, Config, Error>;
+type Context<'a> = poise::Context<'a, Arc<Mutex<Config>>, Error>;
 
 /// Deploys a daily dose!
 #[poise::command(slash_command, prefix_command)]
@@ -66,6 +69,27 @@ async fn record_channel_to_file(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+#[poise::command(slash_command, prefix_command)]
+async fn add_channel_to_config(ctx: Context<'_>) -> Result<(), Error> {
+    {
+        let mut config = ctx.data().lock();
+        config.channels.push(ctx.channel_id().get());
+        config.channels.sort_unstable();
+        config.channels.dedup();
+        write_to_file(CONFIG_FILE, config.deref()).expect("unable to write config TOML to file");
+    }
+    ctx.say(
+        "Added ".to_owned()
+            + &ctx
+                .channel_id()
+                .name(ctx.http())
+                .await
+                .unwrap_or("channel".to_string()),
+    )
+    .await?;
+    Ok(())
+}
+
 fn read_from_file<T>(filename: &str) -> Result<T, toml::de::Error>
 where
     for<'de> T: Deserialize<'de>,
@@ -89,10 +113,18 @@ async fn initialise_file(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-async fn queue_post(ctx: serenity::Context, config: &Config) {
+#[poise::command(slash_command, prefix_command)]
+async fn post_config(ctx: Context<'_>) -> Result<(), Error> {
+    let message = ctx.data().lock().channels.clone().iter().join(", ");
+    let builder = CreateReply::default().content(message);
+    ctx.send(builder).await?;
+    Ok(())
+}
+
+async fn queue_post(ctx: serenity::Context, config: Arc<Mutex<Config>>) {
     let ctx = Arc::new(ctx);
     loop {
-        let channels = config.channels.clone();
+        let channels = config.lock().channels.clone();
         for channel in channels {
             let channel_ctx = Arc::clone(&ctx);
             println!("{channel:?}");
@@ -116,8 +148,11 @@ async fn queue_post(ctx: serenity::Context, config: &Config) {
             });
         }
         let now = Utc::now();
-        let next_midnight =
-            Pacific.with_ymd_and_hms(now.year(), now.month(), now.day() + 1, 0, 0, 0);
+        let next_midnight = Pacific
+            .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
+            .single()
+            .expect("Pacific should have a timezone.")
+            .checked_add_days(Days::new(1));
         let sleep_duration = Instant::now()
             + Duration::from_secs(
                 next_midnight
@@ -153,28 +188,25 @@ async fn post_in_channel(ctx: &serenity::Context, channel_id: u64) {
 
 fn gen_instant_between(start: Instant, end: Instant) -> Instant {
     let sec = (end - start).as_secs();
-    let rand_sec = rand::thread_rng().gen_range(0..sec);
+    let rand_sec = rand::rng().random_range(0..sec);
     Instant::now() + Duration::from_secs(rand_sec)
 }
 
 async fn event_handler(
     ctx: serenity::Context,
     event: &serenity::FullEvent,
-    _framework: poise::FrameworkContext<'_, Config, Error>,
-    data: &Config,
+    _framework: poise::FrameworkContext<'_, Arc<Mutex<Config>>, Error>,
+    data: Arc<Mutex<Config>>,
 ) -> Result<(), Error> {
-    match event {
-        serenity::FullEvent::CacheReady { guilds: _ } => {
-            println!("cache ready!");
-            println!("{data:#?}");
-            let config = Arc::new(data);
-            //let config_clone = config.clone();
-            //let ctx = Arc::new(ctx);
-            //async move {
-            queue_post(ctx, &config).await;
-            //};
-        }
-        _ => {}
+    if let serenity::FullEvent::CacheReady { guilds: _ } = event {
+        println!("cache ready!");
+        println!("{data:#?}");
+        //let config = Arc::new(data);
+        //let config_clone = config.clone();
+        //let ctx = Arc::new(ctx);
+        //async move {
+        queue_post(ctx, data).await;
+        //};
     }
     Ok(())
 }
@@ -192,9 +224,11 @@ async fn main() {
                 daily_dose(),
                 record_channel_to_file(),
                 initialise_file(),
+                post_config(),
+                add_channel_to_config(),
             ],
             event_handler: |ctx, event, framework, data| {
-                Box::pin(event_handler(ctx.clone(), event, framework, data))
+                Box::pin(event_handler(ctx.clone(), event, framework, data.clone()))
             },
             ..Default::default()
         })
@@ -203,7 +237,8 @@ async fn main() {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 let config: Config = read_from_file(CONFIG_FILE).expect("config TOML invalid");
 
-                Ok(config)
+                let shared_config = Arc::new(Mutex::new(config));
+                Ok(shared_config)
             })
         })
         .build();
