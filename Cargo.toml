@@ -2,7 +2,7 @@
 name = "daily-dose"
 version = "0.1.0"
 authors = ["Hayley Sparham <5777950+PartlyAwesome@users.noreply.github.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.30", features = ["derive", "env"] }
@@ -12,7 +12,7 @@ poise = "0.6.1"
 chrono = "0.4.39"
 rand = "0.9.0"
 clokwerk = "0.4.0"
-serde = { version = "1.0.217", features = ["derive"] }
+serde = { version = "1.0.218", features = ["derive"] }
 toml = "0.8.20"
 itertools = "0.14.0"
 config = { version = "0.15.8", features = ["toml"] }
