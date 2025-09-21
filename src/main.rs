@@ -7,14 +7,14 @@ use chrono_tz::US::Pacific;
 use clap::Parser;
 use itertools::Itertools;
 use parking_lot::Mutex;
-use poise::{serenity_prelude as serenity, CreateReply};
+use poise::{CreateReply, serenity_prelude as serenity};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serenity::all::CacheHttp;
 use serenity::all::ChannelId;
 use serenity::all::CreateAttachment;
 use serenity::all::CreateMessage;
-use serenity::{all::GatewayIntents, Client};
+use serenity::{Client, all::GatewayIntents};
 use std::ops::Deref;
 use std::sync::Arc;
 use tokio::time::{Duration, Instant};
@@ -127,7 +127,7 @@ async fn queue_post(ctx: serenity::Context, config: Arc<Mutex<Config>>) {
         let channels = config.lock().channels.clone();
         for channel in channels {
             let channel_ctx = Arc::clone(&ctx);
-            println!("{channel:?}");
+            //println!("{channel:?}");
             tokio::spawn(async move {
                 let now = Utc::now();
                 let london_midnight =
@@ -169,7 +169,7 @@ async fn queue_post(ctx: serenity::Context, config: Arc<Mutex<Config>>) {
 }
 
 async fn post_in_channel(ctx: &serenity::Context, channel_id: u64) {
-    println!("posting a dose");
+    //println!("posting a dose");
     let video_filename = "dailydose.mp4";
     let builder = CreateMessage::new().add_file(
         CreateAttachment::path("./".to_string() + video_filename)
@@ -199,14 +199,9 @@ async fn event_handler(
     data: Arc<Mutex<Config>>,
 ) -> Result<(), Error> {
     if let serenity::FullEvent::CacheReady { guilds: _ } = event {
-        println!("cache ready!");
-        println!("{data:#?}");
-        //let config = Arc::new(data);
-        //let config_clone = config.clone();
-        //let ctx = Arc::new(ctx);
-        //async move {
+        //println!("cache ready!");
+        //println!("{data:#?}");
         queue_post(ctx, data).await;
-        //};
     }
     Ok(())
 }
